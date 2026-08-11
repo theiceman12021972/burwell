@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Burwell EDM Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root{
+    --blue:#0884b5;
+    --blue-dark:#066a92;
+    --ink:#1a1a1a;
+    --muted:#666;
+    --border:#e2e2e2;
+    --bg:#f4f4f4;
+    --ok:#1e8e3e;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family:'Manrope','-apple-system',BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+  }
+  .topbar{
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    padding:16px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    z-index:20;
+  }
+  .topbar h1{
+    font-size:17px;
+    margin:0;
+    color:var(--ink);
+  }
+  .topbar h1 span{ color:var(--blue); }
+  .topbar .actions{ display:flex; gap:10px; }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    border-radius:6px;
+    font-size:13px;
+    font-weight:700;
+    padding:10px 16px;
+    transition:opacity .15s;
+  }
+  button:hover{ opacity:0.88; }
+  button:active{ opacity:0.75; }
+  .btn-primary{ background:var(--blue); color:#fff; }
+  .btn-secondary{ background:#fff; color:var(--blue); border:1.5px solid var(--blue); }
+  .btn-secondary.copied{ background:var(--ok); color:#fff; border-color:var(--ok); }
+
+  .layout{
+    display:flex;
+    height:calc(100vh - 61px);
+  }
+  .form-panel{
+    width:46%;
+    max-width:640px;
+    overflow-y:auto;
+    padding:24px;
+    border-right:1px solid var(--border);
+  }
+  .preview-panel{
+    flex:1;
+    background:#dedede;
+    display:flex;
+    flex-direction:column;
+  }
+  .preview-header{
+    padding:10px 20px;
+    background:#fff;
+    border-bottom:1px solid var(--border);
+    font-size:12px;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .preview-header b{ color:var(--ink); }
+  iframe{
+    flex:1;
+    border:none;
+    width:100%;
+  }
+
+  .section-card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:10px;
+    margin-bottom:18px;
+    overflow:hidden;
+  }
+  .section-head{
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#fafafa;
+    border-bottom:1px solid var(--border);
+  }
+  .section-head .title{
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .section-head .badge{
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+    color:var(--blue);
+    background:#e8f4fa;
+    border-radius:20px;
+    padding:2px 9px;
+  }
+  .toggle-wrap{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    color:var(--muted);
+    user-select:none;
+  }
+  .switch{
+    position:relative;
+    width:38px;
+    height:21px;
+    flex-shrink:0;
+  }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{
+    position:absolute; inset:0;
+    background:#ccc;
+    border-radius:20px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .slider:before{
+    content:"";
+    position:absolute;
+    height:15px; width:15px;
+    left:3px; top:3px;
+    background:#fff;
+    border-radius:50%;
+    transition:.15s;
+  }
+  input:checked + .slider{ background:var(--blue); }
+  input:checked + .slider:before{ transform:translateX(17px); }
+
+  .section-body{
+    padding:16px 18px 18px 18px;
+  }
+  .section-body.disabled{
+    opacity:0.4;
+    pointer-events:none;
+  }
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  .field label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  .field input[type=text], .field textarea{
+    width:100%;
+    padding:9px 11px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:13.5px;
+    font-family:inherit;
+    color:var(--ink);
+    resize:vertical;
+  }
+  .field input[type=text]:focus, .field textarea:focus{
+    outline:none;
+    border-color:var(--blue);
+    box-shadow:0 0 0 3px rgba(8,132,181,0.12);
+  }
+  .field textarea{ min-height:56px; }
+  .field .hint{
+    font-size:11px;
+    color:#999;
+    margin-top:4px;
+  }
+  .field .hint code{
+    background:#f0f0f0;
+    padding:1px 4px;
+    border-radius:3px;
+    font-size:10.5px;
+  }
+  .image-field-row{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+  }
+  .thumb{
+    width:64px;
+    height:64px;
+    flex-shrink:0;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:#fafafa;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .thumb-placeholder{
+    font-size:9px;
+    color:#bbb;
+    text-align:center;
+    padding:4px;
+    line-height:1.3;
+  }
+  .image-field-controls{
+    flex:1;
+    min-width:0;
+  }
+  .image-field-buttons{
+    margin-top:6px;
+  }
+  .btn-choose{
+    background:#fff;
+    color:var(--blue);
+    border:1px solid var(--blue);
+    padding:6px 12px;
+    font-size:12px;
+    border-radius:5px;
+    font-weight:600;
+  }
+  .locked-note{
+    padding:14px 18px;
+    font-size:12.5px;
+    color:var(--muted);
+    background:#fafafa;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .row2{ display:flex; gap:12px; }
+  .row2 .field{ flex:1; }
+
+  .empty-state{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100%;
+    color:#999;
+    font-size:13px;
+  }
+
+  @media (max-width: 900px){
+    .layout{ flex-direction:column; height:auto; }
+    .form-panel{ width:100%; max-width:none; border-right:none; border-bottom:1px solid var(--border); }
+    .preview-panel{ height:600px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h1><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAsEAAACJCAYAAADNJeVcAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAABAVpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDEwLjAtYzAwMCA3OS5kMjBlNDY2MzAsIDIwMjUvMTIvMDktMDI6MTE6MjMgICAgICAgICI+IDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+IDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpjMjAyMzE1NC05OTlhLTRiZWItYTI0Ni03NzBjYWMzOTg5MmMiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OUE2RkQ1NjE4M0Y3MTFGMUE4QTBCMkVENUJEMUUyMzEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OUE2RkQ1NjA4M0Y3MTFGMUE4QTBCMkVENUJEMUUyMzEiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgSWxsdXN0cmF0b3IgMzAuNSAoV2luZG93cykiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0idXVpZDowMGYyYjQxZi1iN2I0LTQxNWQtYjA4OS01NGM1YzlmZTA0ZWMiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6NDQ1MWVjZmEtMjA2My03ODQ5LWI5MzktNTc5M2E2OWQ3YzYzIi8+IDxkYzp0aXRsZT4gPHJkZjpBbHQ+IDxyZGY6bGkgeG1sOmxhbmc9IngtZGVmYXVsdCI+QlVSV0VMTC1MT0dPLVVTRTwvcmRmOmxpPiA8L3JkZjpBbHQ+IDwvZGM6dGl0bGU+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+Vny60AAAJ0JJREFUeNrsXQe4FsW5/g6g0qsoTbAgKlYiigVbNEZFjd1oSDGaWLBrTG40N9GrN1GRGFT0GkGwxIIl9kRFLHREiigdUUE4cKSXQ/PkHXe4Ho//z/l3d2Z2dvd9n+d7lnLOltnZmXe++b73K6uqqhKCIAiCIAiCyBPqsAkIgiAIgiAIkmCCIAiCIAiCIAkmCIIgCIIgCJJggiAIgiAIgiAJJgiCIAiCIAiSYIIgCIIgCIIgCSYIgiAIgiAIkmCCIAiCIAiCIAkmCIIgCIIgCJJggiAIgiAIgiAJJgiCIAiCIAiSYIIgCIIgCIIgCSYIgiAIgiAIkmCCIAiCIAiCIAkmCIIgCIIgCJJggiAIgiAIIoeo5+pCZWVl3jZC/VtfUYuBpil6b2srb+q1IQ036qhtv0J7rPTsuZupbm/5Mivx3F9FvL/GLr//GFiPZ1zneR+3/a6r0AYrLN5/84SabiOea42F52mEwzY2bhj3uzzJ66cYK9B2VRHeZVMHzrpVuLfNWWhktFcTHOpavsxqtNcm289SVVUlmSLBnuNI2PCUdfavP16YmkS+gJXDPoVNg02FTUJHXerBrR4Fe8vyNT6AHejZQLTMMjFSg5C6TmXE358Ba5eivv714k8RfzWhwipgC2ALYXP188xAn5+XwC3afteLYTtaatueOLyX0Kt9AXaahfNOgO1h4bwfwfYp4efe8Wk88gDrtCNkU8i+WU/Pa/Ut319rPZ5kAXP089hEF9gsoSc4U+iR0vtuoq1NoYUUBpGPcXwX9iJsGAjCxoy27TjP3stBDrzAk/E+KyMSn/ZpIcA10FBbm2IkB8+mFn7jYaNhb8LG2PTy4HrbOnjXNifoKxN8nza8wPtaIsAKD5dwfUXY9ueU+m0nRUTP4f4OCPAc3FtFRrzAuzggwEvRXrOE4RCZw0EZfCY1Me+t7VLYSnwkQ3G8B514csba1jcSfLCDa4z3/P6SQkvYD7X9CbYc/f5lHIfA3ooaPlILMbeNhZYmzY44nJHgu7KxKD9H7O28PFrCzx3AefU7GOvx3DE+Q+18MNtLmBgn+fIEh4HajroQNgmT31uwQx1d9xCPB9k0D0Zj2d9Lgop37Q17AzYP/f5qHbNp8ruyjSWWzttH7McPusb5ls77EhZQi/ltOXVS9Mjh3OH7vDNOSIKzBUyIbXHokLPHPgY2Cs/+NGxHi23bzsG2+2rY9BwuqsZx5yM0doL9FfYp+uY1OuYwdjd3cN+LLXybyoP9q4yN5SoOd1dLpx/EXRbnYxVJHRcNJMEZWT35irNhH2LyOCnNZNDCFnecidhFvO2qqMRfq3XkfaJuBesHG4/26Cr+h0OUWzjnT2EtMjie2cAi2L84n0RCBcbnTyImF+9l+d5UiMvEjCwA1YL+e1w0kARza1giZca+go/oOsYopeeZYxD/PWGN+dnLlvhNRYTPkhyFQ+B5yxJOiEsbCR5SSmIX2lXFo3fmZ2WENLlILp7iu/xiCCjVkgaWrzEP7bVESIKFSXHZRF8M4jfkLDY2j6EQjFmU73hyn0Lf/3nE32/g4B4XGT7fcbCuHrR9lUFi34OhEJKlpDiGQjAUgiRY3BRy4MD1DW5Hm5xjsG0Pyqk8ms/PzP5eeBwcFDEsqEEKE+Ou8qTdV6RAFWIkvF8z+W0l4gkmCaaSBkmw2Bd9bipEdTykpZPiYk+tYWwTX2CCWpDDRdVY7nxYGQsf08mcYdAsTSQYz7c7DidJtpwZZRZDIQYJd1mSIJqH0LPpXXuNIQkWxgPnAIq4/k0o1+JrvK0i/l9EJAsNKOS/VahEsbs9VIcwGQ5xhdiPtUxiHN9J7CjPPM1dlsiYHaVqaY5VhaIuAhs7SCLcnJUkQpJgDlql4DQtN8R4YP8WVWNiJoJRyH/rOBt9f3+PwiHWgUisMTRZql2vCzL4zs61dN6n0farQ1Tr2p6fj6RFH3i8T6pCMdHdAZf7EO21liSYJDhPuILKEJl7Zu58SMlFJMSTcAiT8mgXZk0ZRIcgnZtUmWR+W9QHZpEMkuC0Dp7bSeAZIwrjdLRR3YhtW9/BtntVTsslj+WizzrODNH366ehUIYmi5dn8F0dDmtr4bwz4fkaIYy1JwkWJsWRBGcT3YRbw1KL/mk3j9t2OiapVR4tqtS2+H4OiP/7JMHW0TLEArlBSpLiThF7EmJRsUH8VYUYJP4lJqUJkQpROFQVYlIc5dFyT4JJCGpHT8YDe0X8p0Ul/phcVJW03dilJUz8dClobvk+Fkq2ZNGqY60B7/aZYicJaEjIal3d+Ml8C5MxVlUKVYXEsvOlDQ4dxH4S4TSSYKEyRA7RMaMFIxgKQdSGXTwJh6gwMFHui8MxGXxHR4udUIjXQJIWeVatSxgKwa39hObaCfgeNme1o9ajJ9gq7pRo3o6WupzxwQlvYbZjjFJmBm9X9zc6xM831hXbWuu+1gnWyJP32dgTElyeUS+wZCgUwgURmQoblqJ38ywrn3HeIQkWb7cQXNR4r8Dq6QYD99pZJ7RcBtvGdVNF3Ha33bZqm20KlSG8u7/+6POPxyx60Fl7+FTxgx8k+D4beBIOUR5z/FCyXT/J4BiuEhfPEDuJiC97uOgfjG/rrhxMz6x8RhJMEsyOU43t3dRrNg5XY9B/BMcXYe0dttN6TwexSWiXjR5NyC7ibRXxn5zlPo93qhL/Zmn7O9p1bxwfkOix6XGwLiPhEL92VNBDEgiFaG3hvI9GGFtYrcvMOJpXVaE4ToOD6TkXxgTnYbseA/MHEnjGXApWr+F2ljcEcyL6wKaIg+WuDoT8l+H+Zhnu8x9psvNEAu+03BN1iIUxJslt9A6SsECG2NAGZrUuSV1ysVeqQjGxhwQqTjaxCO31OUlw9pBKSRF0RpWh+ReH7fQZt2eYFJfkO9EJGb9MoMTp554Uy4gjkXam450jiZB1HpXcn2XjG9MLL2G1Lo6jbK/sh0LQEyypjDsa6LCdZvDDlCyoYaT6nWippTsdv9OpkrwnuCpmOMTV4r+WbBQcC2vhydhKIpKfcTSP7TVWSIIla3FHu1iKJauOOZi4v7RECL6QaB7aKPg4Qtva3nZfquOkGV6Tr8HyVYfvszJE369vObl2c8Rx7mCD732abhNfcLbYiQF/iiSY46jQEywZTSIkCc7QoLXMwTMsC+ENy+1KHmRjNwfE/0uQoTkR70/F2H0v7e9F67auc/RaR+J6G0JUVhQPQyFMeoFvk2hJsja+NxUKcbqFUz+Dd76S3rhEk4vzqCoUtb22EyYRkgTneLXZ0sEzDIvghcrjSt73Z97XgTrAPPSVJZKOMrul4M0QpbJtYpFEmyDbGYyZ/Syih9QWThBPQiHQzm1ZrStV46hXqkISv6KlbcnUmWivFSTBwqQ4n4gaBl4VyrGTg2d4gjXMJQve70x4qtDvtxX75VS34BlP5NGiLiwuNThB/lWrkmzMcIEMtcvyrvi5q5jpal30qAuTCEmCxeUWgosa75ssy9kc66CpKsIKxjtqW/EwRsn3wSgr4vNdHI1Xo0PEnNtWhlgcUWv1EkPXXw57SKLLJdaGryJsAZ9q4T4e1hrVjAdmmCIXDTnre3nzBO+jy7TaxBQMqDZjF3/soJ3uChETKdW23W1vD891tO3uW7zteM8HSxdC/oc6eq33h/jZhh5WiztPzMWoD8D3ttri84WNwT1ezMdgKyI+hMSNJJjtRRLMD83/UAiVOHCy2I9DvJeZqiVhPwdb4kpppCJif2mSISH/Exxc41MJFwbkYzjE1QarRd4j306SSRrnWTjn6/i+5rNaV6LOhF1zqioUtb1UTPzuYj//YrIISTBJsF+rpztgdS3f/7URvT8skuEf8T8wC0L+GPS3d7D4U7g5ZFW+pj55gtFOR+uFmRgqH1w9MW9FwhN/A0uhEANZrYvzMttLClUo3SAkwcLge08+NkwCvxY70kDV8U90/CeY2JCZeOCsxI1dBdtW7Id0DA75Ow09iwm+SsxJI/X17Fs7CdbI8DmVlvuLJG4kwUIlDcmbPnDuSLCu8d5VUihng3tX24D3if2t4F/GaFsX2+4fcFGVL8k6rcN8rdjf+rskQnKUN+EQulCNKU/pi2iLGZ59azYKZDwew9tFNQMqQ0iGFa7G5KTvST3JD1xsDY/HoPqVmCMAjbRQ/VWW71tlgZ+Ie49ahKO7o233deLPokrF2+7pebxtqiXr0MYNtUatbY/r9ehbUeLfbG+HLwzxs5cb/AYLlaheleC31shSOMxAVuvKhWJT1tqSnmCS4GxvDWNg2FOrQFwMa2P5nlWG9gkgAdOoWegd8Z8clfhrIf/2klIhf9y/kh97Xi9ebeIxiZYIKpbJeSXe/ZoQOzEXGbruKFx3ZJEFmY0KXqXgFDEfCqH0d6ewWlfiyJ2qUMxxcWccdhD71WJnkQQLK9JE6TzopIdLYaF61daNpbA3Sf27Khu5t14Vd3HUJiomrhcGiLGsYZ65Z+6RViF/fEOHatkq2xnQw2AXRtSIFcuTd5ikuJ8b9Eq7jAWuTDAUYlCM3+3Gal25GUdz2V4xxkSSYMl3HM1fUtQeU2GnorN/Iunwso9hUpxk2jsP8tsTh2tgZzi49+G6/8fJgG6SNAnWUl1XmiJesBeK/N+6BHM5TjJ8WiX/9g/x26HSCc8+z+P5Yza+neOYFMckQpJgScUWQhsHNd7ThL8rslHqdmsJ2+4dHGy7TxeG12TGw6Ilr1Qy5QGaVCgd4J0dvbuhsN4GJIAaid2qjaXgRDG3c3TXVnIa1if0nZ1sIQHxWTzncvHboaKeuZPHc8gIJsUxiZAkmB0nbVAKEJdhAng1ZSvT921su8cgcO3E43hb3F8dR96q3+Fal0s4z2kTHefeJIFXpwjeH2B/NrTdV9+DpLgrDcqxPeLhmHW++BUKIY6+Ld8x1lBycR5VhaK2V11HFUrpCRbGHWUNq3TG910WChv0YJEM8U1ppIsD5QJxkLRmEnNgF6BN3zN4ziZJyqNhUlQE4oeGrtcfbbO1GN2NCUz6zQw+X3VHwPAY99RS7MeqpwHjUqLY5JWqUEzsI/aVcj5Fey0WkmCS4IxAJb4N0BNchVCuJS/Enzsf8i0N4H6w2yJWQpSEwiEWO/QCq7Co+0v4Gdc41UKRlIdjyljSCxwsiCZxa595KCTBkoothLKckWC1zfuuBBqYz9osaau33Q/OYVLcQYwH9h6btfzZLfgG5lq6RmLqEPj2WuDwM0PXGog2WprAO1pZy/+fY2FsHMxQiNiYhP6yng4UKmmQBKcDezjaGk4SStfvbdi/Jaj2tNDRdV1suy/C88z3aFFVh8oQXmO5lle7F/1mtuVrNZbkwiEuMrQ1ull7ykshkGIhRntrJP94w9cbhj7xqfivMuQ7xrPymTApjiSYqycPMFcL/T+Dwf1zbs84W1TZTur6Au9zQQwh/wNyNo6pWNbXJVB9eM7m7odDEryolgSZPoau83SJxNC1Zu0ZFkIhBkk6vJeSg6Q4V8V8pks2drQb6ToCwiRCkuCsxkdujCDAvqsEXpx++Ei2JHw8pwiBoe0qJsWl75m75eC7rtSD9WgJCl68a0LuzzN1iK15gk8Tc/JZd3r6js+2sEPwfAqqdUlOkuJ65E1VSPxPIvwooXGUJFjoCVbYBBsFm6+1P1uG/H01Kf5C23IM2A/heA869WcU7maRjAzgCb3A+1iCalqbPLinpMIhrjJ0jTfRjhPFP6+XGvuONXzax2tRv2CYkZQcxz2Dc4cwFIIkWNKwheCixrsYTLI5Sk9+10kgTn8F7NAI52oOu15NlmiD+yRIDlqWwratYrlkKkNonKdNyR2Vo//N1RXOlDf4PUOVD30hwUuKebDw3MrTf4S49wKvctiup1uYmwYxtM4MsTSksX0QSTCT4nxAnYw/3wEOarybRmvYwxKIxKvs6CMliHeMAvXsV8OmYvI80fB9dnPQtjMw4K4QfxZV9R0RfypDbH2xuDPs+7BLJEiCm4t3Mx7WR1eiS3s4RIUDL/AUfFuvh4wXFAu7X+KgQIZ61g9YdMkPYpmS5OI8kuAxQhIsDIXwB6pc6IewFhjAlWD8MRJdm1FVOHsVg8/vJT8yYbYWVbZ3T6bjfa+KsY3cOaeTc3cJkkRnoR3OcnTNRi7l0fBcO2hvuGQkFnh1kWc82vB1BhogbvUcVevKQzywC1WhhT6pCsXse6rCZkfLl1mrQ81IgoVJcT5BhTW8gI9AlXp9R0/0V+oOGwW34Vx9JT3yNkyKY+Z6WKiM86Ho5/20RritialJAoUyLhUziglKSebJkL+zzqEqRB3DxVIeN3CevR1U65I8KEPkNKFaPB/Xs5RESBIs2dsavkWCik5V6Kj3SOCRjLq9dx0m8BvoCWZSXMZxDayvZEQZAt/stjr8wwTujpBYuF7SqQrxAp71SzpUjGA+2nIRk+Kc4xC2F0lwFE9Ni4zVeL8Ydt/X+lA39ZqFw+ESVMSKgv9F+/SMmb29u4Nyt5OEyQmcqKPjWvTV4yVdoRAKhYrdnAtrY+DcKsb+QU/H7LYWQiEGSXq8cZIDLzBJMB1OJMH0AkfGJZgofquJcKUum/rXCOdRYvv/p+PcfP0oJ+IZN3om29TZgf7tZPZ5o+ivE3FMw2Y4RIXFhLgB+K5WSzQdc9s4y/CcND9GUrGwUpyVpDgXxXyqsqJ0oEO6DmISoVAizVOi9oAikzF+X5HRtloI++wSK8IoL+4ITGQjlVQN/nydnpAvCnntrrALYH/nSt6bZ54UlfhrIf/WnKelUIW/XrCXUhQOUV7j3R6mxwgxsLtyT8TfdSGif47h8w3G9/SVoWpdXcV+ta4Rnn9Lw8WMqlC9PKkKSfwkwuaWr1FuuZ4ASbBkN47mVXQeE1v2L2OgvUV7QlTsbyvZuvd+MH5+H1UVThPhy/Bve8LChjhcHZEE51G42/d4YIZCyFbjTF9KUThEeYHv1AQexXix0KP3sq4a0WynQ7yMkmBJV7Wuo4XFq4Rb+8JQCGE4RO46jyKzsKESFMdYUsuPd66eJKO9hz+LoBrRFZNPd36YVIYoEargyqcl2kKHigK14QRJaTgEvs+dJFBMEANbxH1j/r5prK+xUDGp5vE2xsU5rNYlrHwmdOax70m+PMGOarx/ikG23PRJVdIb7l8R2tdq+VFVDe6eLdt9qmIW/q7ig2+MQBDe96xtVWzsbI/6Uz0LXirTJNjFYPkz9LOXQ7adkpXaVYJQn+/ramCuwzZa4z7a494XiNmiHeIgMa6PBGFTcfEynn+6xEuoE8sVAcXDhDhhtS5h5TPJtDMvl5XiJOOe4FRvuWCy+hcOw2r5sV3kuyWV75bwCSw9ImwN2sZMQ6U5Ta7Gm1m+RgWeeXYMkt7Nxz6PZ1oLmwp7CqYUTnbSZcErHb/DvQyfz5ZmbOWWxDW9gPiVofPe4bHToqNhD+FK2LOs1uXde3aRXLzeQ1Uhn5MIGQ5BEuxtxylFzP64GoRDbaP+W8InyIXBvg7a9nPP+tOpDq7xTozf3ceBkL/a+VhsYIGn4tj7SZCstsHhO2xr+HxNHRTK6A1raeCco9HmIzyP2TY6dqrFF6t15XJenuSTqlBM7C9miuNILQ6n5STBwrgj8S+O5l0prYpRTbwd8jo7eEiCl4hfEjU/Fr8zr1O36MPA+xYO/Ry+ylYpUYcor9bvTMmi3WXgHKskPSR4EKt1SV639sdy0UAvcK5JsKMa75tjVGyTmKVTayOwM0Jep3HIn9/FwWv0Sd7mWAm28G3jlRxmEN/n8D02SEk4xJJq/c6ELJcqrPO8oTHPxni9m2GnhVJZGMtqXZJX59Q4theT4vLuCXZR410NtGscbJFFwWrL99UxZ9/IFQ6u8TH607y8ZRDjmVUxgzmO3uN2ko5wiEWGi2PcZUIr1+Ji12cvMCWqhJ5NthdJMFdPyayeOkYsrxr2nS4P4bWpa2FbuRCaiR+7CsoTd4qDSz2ZAiF/WzsfrkhwZUrCIZbgne6uY6ZNeJUfEcOavmK2spdJErxJopeSLxYKdTC9ccYUm2yrwixT6koZaa/mulCGTWyIWaGUJFioDyyWPdq1YarETwAKI/PW0tE73NGTvnSrmNUuLYZ/xPjd7o6E/NfYLpiQMhLc0GIY1OWG+l1/vLd1FjR9TWE3w6FrL5lI3pRvV+tqxmpdwlAIyWwS4XoRkmBhpTgvV+6lCPy/IfET16Z7UiVLYihW2FiJH6c1bW3jnZii/vRUScmyWZKC3QoVBvVLA+dZo6tP+oxzxe9QCG5HC/Vu2V4kwZKiLQQXW8NrbMvZ4Dkal6BIMAvkaVyRRK4wmObhq+yENmidcD8a4OhyA3IuPt/EUTtXpCQc4qwIyaqF8DDGhy8N3pcN2amLxGws9WvC0DrJsXNqDD3n1KbOuyfYRY33CQ7kbH4Da17Lz/QrQN520dvjYTBSwsUQucLJCfaj/rDdHVxHlRd+LueDZQtH7/RL8VttIuoiVorEcN8l5hf/Pr/7IRbGZVY3M6fY1I1tyb5HEsykuFIGDFUh5ndSu/d2YIF/vzLk5b4KSYJXO3yXFyY0YF9uaDu6FNyBiXtTTCH/nVIu5N/KUVsvlQwmbxbB0JhqI2nEIAvVuvYXhkOYgItiPvMMx4MnXUHRdl6MSoifSQqcPRKc6tUTOn8HHF6SrVeJUd6Oi2pWxdG/e0nIS47AeZZJ6ZJWKx2Wuz0cz3SE48HnJzj8zdHlPiuykPGtv1sT8tfZ920lnSS4vviLvmJHycFXqHFsJqt1UepL6Mwrmceg71UJQRIsnmwNgxDsh8MoWIdafvRGdN5RBf793ggT8zMRyZsr3I92qe+IAF8ggZyUq2/iDwYyc9Oeca28Hds4eIZNJRafEQ/CIeJiGPrVBMl2AZuaeJjEjSSY7cVQiCioJ9mJO3JR413J2Xxu+L6Vt+Ea2M1Su6D/YFz/9gLnUAkmP5LwiS5PRLjlaQ70C6WaTNxAPF9vW6tWnFuRsDvFXHGCUhdSjwrlADs5au9FFvpPc5HceIF9hgrReloYWicMUyQJZlKc5NoTnKq65Iq0w26SoFjAX0ogwP8olE2Nc/SUwAscFk+BGETJmJ/k+L2erwijjtEzTYDVYDPBMQFWXslL45KyjAj5d3DU5gtsrJ88HAM/hP07Z3PY0/iWVtN7Kb46pxqnvJiP6/aqGyG5XegJFnqCxY0ESx100l9IdHH9Vtr7dRhsrxC/ew/smpqxmbgXpQn8QsSSsFGzx9+G/dHxu1WxugfgeX9dJBQkSujJjbBzEuint+EZJlHI/2u0c9TmX4j/ZZhN4E6LcX6rJAcJcQ6rdamk5DKdCJ0GLI04FrhQbFIqO13Qlj633xK034ISNfIbOpCLbKN3z73tb+Io9LIePcESVrbLpXSXClm4Ch/P/QUG6sNxeFGiVXEbGoOIjdFySY0cv18VGjESz/06jg/BXg5TDQu/p1QUTpVAf7lnQn1Utd1tQk+VOPYEL7RAknzDfIlRfltqT4rd7CHJUIllIyWdXuA6KduSviWi88NFW+4Km+h5+10vpTmeXDjztk9Be6l58iaSYP+2hl1iNuw8DPLvF3je8zURbBCxfOxvY0yGlbj+8/hj74Ta5Xht63EfE/TH/Ilaacs3VcEaaC/pzrDOeoHUUZJf2Z5bU9VD8h1n54oEL8lBKMTdBvuW5FEWTdw6VNKGcR4vKNKAMex7fsZ4Z8UT3MVz3U4JuU2mwh9+j0ltbQ3yW18Xybg0xvn/iPN+IvGzsXsn3E7b6bCSw1LwThU5OctwaEEWPMHtHbX/ioyTYPV8Dzq4TqVHz65Cw4ZIekPr8kKCe7Dpvu6rE9lefsbL12M2pXerxT4gSx8U8P4ehcMDsD1jnH+koUpSw2EfSRCiQNSOS/BOh6dQyN928oQrjeA1GVeGeAD9y0XM7nqPSPCreOZFQk+wC6hCFEs8LeaTBkyt6dAq0l6NOKd+jc/QXuVyYxXVIXK02pwMOx12WE0CjA9je9hgCRLS4hBgNWGcY6LwgU6++W9+qyXhN2gv09u2B2REyH9HcSejJRnVCN7osMCLZFwbWI23nRz2S8n41jRDIcK1nyotXZfN5Vbujp7gZKG8qbdKIPPzVYHkm6u1xQ31ULGyJ+IaJrPkVVzwe7Aj+M0WxX+hzfum1FM1znIc/3YOQ5hWZzgc4lH0sYXijnD7AFX45GXOJc4wnqEQTtqPYTgJyLfVy0BSnKutYTEY86sG8P6wt2pKGuF5WuBwMew3Ek35oSaUgsJphmS5pLo3GPd6sdZnrM/v9jvv+Aq00QCh+HwxtHb4PlYaPl+znBbHWKMzy30g/htJgsW3pC62JZPi6AlOAC62hsWQlqEqePEgBvB5Bci80vy9XIKEM1M6gctgvXC90TX/408T5ivi2vlPB3aYGoMIT8N9X4s/DuB3+y2i8BO0zQvCMqTiQTywDfgSDqFkAqfl8BsbxF1F8TGpq6ZiE0ldMB9Mo+dcwjiQJghJsGQliUGJUg+FPQ4bVcTreybsp7AjDV97Jux0XPNjKa5bqLZRp0o8j/D9eI79tfc675it23yq2Nv5cCHkv0GCOHWbaJ7i9+zLzscdjq9X5cEzj93KmJaWal1pwoelJHUVwB6SHcWmOHi/lDwc9L0dxF0ZeZ/xEdprjZAES5rlbBR5eFXb6AJV3prg0EuCog0nih0vtiLeFxbLGIcXuIdObLvB0PX6SBC6cXaOP97HdTnkVRmIf5+E51hPEiw+h0MoMvieuJdiSxoDLZ7bRbUuyYlUFb3A4dqPOxAJhELQE2wG02EjJJAfe6NQaUQQ37008T1Jgmpl24i9hBEVi/p0sR8AAe6sK81toyWPxFA1qd5aR/SnOftoy3WbD81Qfx+fEyIpKQ6H6Cv5g/JIPiX5caikmQSzLcO1H0MhHOsDOyfBIF8NEX+6VsxuX7VwsDVcHarYwRQJvL3jdIhDRY17qqO1/npq5YQjHFTGUkki98Juxf0s3co76K491K2rxSmLISK8Ac/+c/xxjgTlNcsk+7FLqkDBjVtr85RO1GNIgr0mwSrs5rkcTpDP4ltbKfkMrZOUeebYluHaj57grJNgTcIOx6Gd6hggxJ95OmipLb+52j7RpE7FoE2pqZuqYshge+rkvC12iMMJfqNOErm9tipwaPuLJFCkaFAjdENMKkbgcDPaZKSu5tQuox/qaxLIn02WbO58uPAEN3HYZqav1TTh/tevpqSiI6yS7IZCCL1xEiepK82KTbZQju/0cyYRSpidnqmSWU9w4AUeCTKmtuF/jOP3cZwB+yf+b3rE06rO84gmndsV8dDU0dv+a7St15JJy/VWdoU+LtaddlmBTqrO3xnH3XFU1lkXrtg3Ia/QMv3c/WorxYt27iiBl/iUGv81C+2+wMbN4Z7eRFspb/htsEsyUpRFEfyXYHfg+UZKMnKALoT8l+ukyiwll5kmrQ0TTrYdLMkpBSQF5Yx41+K3xWpdEi2pS9Kr2CSeeIEVp2jB5pIPTBTz8j4mGMRLeS8fBTl7TBOz+/HnttWSyd7Dz5Qaq7qrBDG51YnsCq2Nq46VaNR1BQa8OnpibK4JdFPdEY/C/7XTHswO+tge1kr82H5/W7Ud7Ek8V2Ut5Le5VoC4tghRf9TmzWqveR+0pyr1/D+wH6X0w1xXbcExU7JfFGZ8TRUTkmCv1CH6FxrTcoCHLffL7wmrdQmT4hJpP7aXOAvD8ycxDkS3SidovQjCtrdWGFBVyOri78NxfAs2DDYFP1ts6283CWJu9yq25QkSluZOoSa7dyQorjEUk8DiEkJOdsbhKpgKf2gsxbe5HnDxALjnD3E4TesgK0J+rmdlZ6WI13eYVnx41oHiQ570gZNAU8lGOITaTbs/4fEoKQfAEGEoBJPistl+bC9xXynOK3UIkFxVPvgyELjf4fgL2KUSKCkoLMW/v6PVF5R9gJ/foAnW9dXI7k4ShCh01RqFnbWnuFOKVDBW6dXQWE1+R9Tm8a1W+KKXVmY4uQSPxm1owyUuH0yT4Qvwnq6RQBtZ2bHiz7bZWk18Vbzvi4VUPjxAjwxJ1JQxHEKieEMrEux/6xO67ut47vkZWGAKk+JIgtlefjlgvCKHIGYrdfJWfxC7wzQhVp7D07V9zafwf+/rVcM4XV1kNn5XBaAre0O+K4CuCPIu+ljdVLhDGwnUElxuhX0JmydBnNs0rTihFgKzSk14QRsoz/cxul3OCDHRK5J9Z1LvWIdJqASXgTrW+gTYURKoaezjkBxV6D6kBnqltzrSgTZuXDzmQBVghKNneUUnnrrARMPne1CHbrnGUEk+Me3tBK77joNrqAqPo8hD/h+bSknqksJJXgNyoA5UG9ag/UrV1R4MezLn7bW5UCVdFyirqnJTBKisrCyqokQDTfQUIT6uyMe1QisdTKlm0zSpLvXDba2tpQ5Sb6H/3Exv329XTeC/eZEt9BXVPLqr9XG5JlyqOpvyvs7Hy14doR1U4saBsKNhP4AdGoG4qyS6Q9AuC338CjQpPlCHt+yhPfs764VKk4ie9XL93LOq2VS8g7mc5wiCIAjCPzjjpr6T4BpEsJ3eRj8HdngJq80FOtN9miY/87YYiOByX1++ThTcQ5PBg7R1jamyoJ77B3ju2Wn8IECQVcjHDnphskUJpK4mxyv0ImSNlo1Ti46KUkJJCIIgCIIgCfaeBMckxFLAezxPF4xYqD2GiyRQmFioiZQqgrAqhFpFbfdcpj3LrbTU1RYFirY6PKOLNtO6pmqb7yxfPcAEQRAEQRAkwdE9pydKkEx3nIViFRu0tvBKvcVeqa1mGITUCJVoohO/msk3UmziWNfzdtjNW5IJCYIgCIIgSIIzQoJrEGKV7HeYJsUn5rhyjZKYuw7kdxI/J4IgCIIgSIIzToKLhE0cDTtSAk3hrhnvO0pj+c8gv2/wMyIIgiAIgiQ4pyS4ACneXgI5rp6aGO+fgRKPSnXiKdiDIL8f8vMhCIIgCIIkmCS4NlK8jQQqDN0lqHmuJLr2k+LV1nyB0hj+lwTV5N4E+d3Ez4YgCIIgCJJgkuA4xLiOrjandGp3l29UG7poRQfXWK21jydqpYcRIL2f8TMhCIIgCIIkmCTYFUFW+rQdJZA1U9ZegmIO7XWxjcbVrLk+1t1KqV6lV7ys2rFCS7fN3WKUNiMIgiAIgiQ4pSSYIAiCIAiCIHxBHTYBQRAEQRAEQRJMEARBEARBECTBBEEQBEEQBEESTBAEQRAEQRAkwQRBEARBEARBEkwQBEEQBEEQJMEEQRAEQRAEQRJMEARBEARBECTBBEEQBEEQBEESTBAEQRAEQRAkwQRBEARBEARBEkwQBEEQBEEQJMEEQRAEQRAEQRJMEARBEARBECTBBEEQBEEQBEESTBAEQRAEQZAEEwRBEARBEET28R8BBgANNjohudr4vAAAAABJRU5ErkJggg==" alt="Burwell" style="height:26px; width:auto; vertical-align:middle; display:inline-block; margin-right:10px;"><span style="vertical-align:middle;">EDM Builder</span></h1>
+    <div class="actions">
+      <button class="btn-secondary" id="copyBtn">Copy HTML</button>
+      <button class="btn-secondary" id="downloadImagesBtn">Download Images (ZIP)</button>
+      <button class="btn-primary" id="downloadBtn">Download HTML</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="form-panel" id="formPanel"></div>
+    <div class="preview-panel">
+      <div class="preview-header">
+        <span>Live preview</span>
+        <b id="previewMeta"></b>
+      </div>
+      <iframe id="previewFrame" title="EDM live preview"></iframe>
+    </div>
+  </div>
+
+<script>
+const MASTER_TEMPLATE = String.raw`<!DOCTYPE html>
+<!--
+  ============================================================
+  BURWELL EDM — MASTER TEMPLATE
+  ============================================================
+  This is the base template for all future Burwell EDMs.
+
+  LOCKED SECTIONS (do not edit per-campaign — same on every EDM):
+    - Header (logo + link to burwell.com.au)
+    - Social Icons row
+    - Footer (company details, unsubscribe/preferences merge tags)
+
+  FILLABLE FIELDS (replace each placeholder below per campaign):
+
+  {{EMAIL_TITLE}}         — <title> tag (browser tab / webmail title,
+                             not the inbox subject line)
+  {{SUBJECT_LINE}}        — reference only, see note below
+  {{PREVIEW_TEXT}}        — hidden preheader snippet, see note below
+
+  IMPORTANT — SUBJECT LINE & PREVIEW TEXT:
+  Campaign Monitor has its own dedicated Subject Line and Preview
+  Text fields in the campaign builder (outside this HTML file) —
+  those are what recipients actually see, and take priority.
+  {{SUBJECT_LINE}} is not read by Campaign Monitor from this file;
+  it's included here purely as a reference value so whoever (or
+  whatever app) fills in this template also has it on hand to
+  paste into Campaign Monitor's Subject field directly — unless
+  the app creates campaigns via Campaign Monitor's API, in which
+  case it can set the Subject field programmatically from the same
+  source value.
+  {{PREVIEW_TEXT}} DOES do something on its own: it populates a
+  hidden preheader snippet at the top of the email body, which
+  many inbox clients fall back to if Campaign Monitor's own
+  Preview Text field is left blank. Fill both the same way to be
+  safe — Campaign Monitor's field for what recipients see, and
+  this token as a backstop.
+
+  Hero section:
+    {{HERO_HEADLINE}}      — main H1 headline
+    {{HERO_SUBTEXT}}       — supporting paragraph under the headline
+    {{HERO_CTA_TEXT}}      — hero CTA button label
+    {{HERO_CTA_URL}}       — hero CTA button + hero image link target
+    {{HERO_IMAGE_SRC}}     — hero image filename/path
+    {{HERO_IMAGE_ALT}}     — hero image alt/title text
+
+  Content Block 1, 2, 3 (repeat the same pattern for each):
+    {{BLOCK1_HEADLINE}}    {{BLOCK2_HEADLINE}}    {{BLOCK3_HEADLINE}}
+    {{BLOCK1_SUBTEXT}}     {{BLOCK2_SUBTEXT}}     {{BLOCK3_SUBTEXT}}
+    {{BLOCK1_IMAGE_SRC}}   {{BLOCK2_IMAGE_SRC}}   {{BLOCK3_IMAGE_SRC}}
+    {{BLOCK1_IMAGE_ALT}}   {{BLOCK2_IMAGE_ALT}}   {{BLOCK3_IMAGE_ALT}}
+    {{BLOCK1_CTA_TEXT}}    {{BLOCK2_CTA_TEXT}}    {{BLOCK3_CTA_TEXT}}
+    {{BLOCK1_CTA_URL}}     {{BLOCK2_CTA_URL}}     {{BLOCK3_CTA_URL}}
+    (CTA_URL is reused for that block's image link, so button and
+    image click through to the same place.)
+
+  NEED MORE OR FEWER THAN 3 CONTENT BLOCKS?
+    Each block is a self-contained, repeatable chunk of markup
+    (Headline → Subtext → Image → CTA → Spacer). To add a block,
+    copy an existing block's full markup (from its opening
+    "SECTION:" comment to the SPACER row after its CTA) and
+    renumber its tokens (e.g. BLOCK4_...). To remove a block,
+    delete that same chunk entirely, including its trailing spacer.
+
+  PLACEHOLDER SYNTAX: double curly braces around a field name,
+  e.g. HERO_HEADLINE wrapped in {{ and }} — chosen as the most
+  widely-supported convention. If the filling app expects a
+  different syntax (e.g. square brackets), do a straightforward
+  find/replace across this file to convert.
+  ============================================================
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{EMAIL_TITLE}}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style type="text/css">
+    /* Basic Reset and font fallback */
+    body, table, td, a {
+      font-family: 'Manrope', Helvetica, Arial, sans-serif !important;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+    table, td {
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    img {
+      -ms-interpolation-mode: bicubic;
+    }
+
+    /* Responsive styles */
+    @media only screen and (max-width: 600px) {
+      .container {
+        width: 100% !important;
+        padding: 0 10px !important;
+      }
+      .stack-column {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .stack-img {
+        width: 100% !important;
+        height: auto !important;
+      }
+      .mobile-center {
+        text-align: center !important;
+      }
+      .padding-reset {
+        padding: 0 !important;
+      }
+    }
+  </style>
+  <!--[if !mso]><!-->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope&amp;display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'Manrope';
+      font-style: normal;
+      font-weight: 400;
+      src: url('https://fonts.gstatic.com/s/manrope/v20/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk79FN_C-bnTfc7AGrY.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Manrope';
+      font-style: normal;
+      font-weight: 500;
+      src: url('https://fonts.gstatic.com/s/manrope/v20/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk7PFN_C-bnTfc7AGrY.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Manrope';
+      font-style: normal;
+      font-weight: 600;
+      src: url('https://fonts.gstatic.com/s/manrope/v20/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk4jE9_C-bnTfc7AGrY.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Manrope';
+      font-style: normal;
+      font-weight: 800;
+      src: url('https://fonts.gstatic.com/s/manrope/v20/xn7_YHE41ni1AdIRqAuZuw1Bx9mbZk59E9_C-bnTfc7AGrY.woff2') format('woff2');
+    }
+  </style>
+  <!--<![endif]-->
+</head>
+<body style="margin:0; padding:0; background-color:#ffffff; font-family:'Manrope', Helvetica, Arial, sans-serif;">
+
+  <!-- ============================================================ -->
+  <!-- HIDDEN PREHEADER (controls inbox preview snippet as a        -->
+  <!-- fallback — Campaign Monitor's own Preview Text field in the  -->
+  <!-- campaign builder still takes priority when set there)        -->
+  <!-- ============================================================ -->
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden; mso-hide:all;">
+    {{PREVIEW_TEXT}}
+  </div>
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden; mso-hide:all;">
+    &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- OUTER WRAPPER                                                 -->
+  <!-- ============================================================ -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#cecece">
+    <tr>
+      <td align="center">
+
+        <!-- Main container -->
+        <table class="container" width="600" border="0" cellspacing="0" cellpadding="0" style="max-width:600px; background:#ffffff; margin: 0 auto;">
+
+          <!-- ============================================================ -->
+          <!-- SECTION: HEADER                                               -->
+          <!-- ============================================================ -->
+          <tr>
+            <td align="left" style="padding: 0px 0px 30px 0px; background-color: #ffffff;">
+              <a href="https://www.burwell.com.au/" style="color:#555555; font-family:'Manrope', Helvetica, Arial, sans-serif;">
+                <img src="images/BURWELL-AIR-POLL-HEADER.png" alt="Burwell Environmental Division" title="Burwell Environmental Division" width="100%" style="display:block;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- ============================================================ -->
+          <!-- SECTION: HERO INTRO (headline + subtext + CTA)                -->
+          <!-- ============================================================ -->
+
+          <!-- Headline -->
+          <tr>
+            <td style="padding: 0px 40px; text-align: left;">
+              <h1 style="margin: 0; font-size: 40px; color: #0884b5; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; line-height: 1.2;">
+                {{HERO_HEADLINE}}
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Subtext -->
+          <tr>
+            <td style="padding: 10px 40px; text-align: left;">
+              <p style="font-size: 18px; color: #555555; font-family:'Manrope', Helvetica, Arial, sans-serif; line-height: 1.4;">
+                {{HERO_SUBTEXT}}
+              </p>
+            </td>
+          </tr>
+
+          <!-- CTA button (solid red) -->
+          <tr>
+            <td align="left" class="mobile-center" style="padding: 0 30px 40px 30px; background-color: #ffffff;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#0884b5" style="border-radius: 6px;">
+                    <a href="{{HERO_CTA_URL}}"
+                       style="display: inline-block; padding: 12px 24px; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; font-size: 16px; color: #ffffff; text-decoration: none; border: 2px solid #ffffff; border-radius: 6px; background-color: #0884b5;">
+                      {{HERO_CTA_TEXT}}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ============================================================ -->
+          <!-- SECTION: HERO IMAGE                                           -->
+          <!-- ============================================================ -->
+          <tr>
+            <td style="padding: 0px; text-align: left;">
+              <a href="{{HERO_CTA_URL}}" style="color:#555555; font-family:'Manrope', Helvetica, Arial, sans-serif;">
+                <img src="{{HERO_IMAGE_SRC}}" width="100%" alt="{{HERO_IMAGE_ALT}}" title="{{HERO_IMAGE_ALT}}" style="display:block; max-width:100%; height:auto;" class="stack-img">
+              </a>
+            </td>
+          </tr>
+
+          <!-- SPACER -->
+          <tr>
+            <td height="20" style="height:20px; line-height:20px; font-size:1px; mso-line-height-rule: exactly; background-color:#cecece;">&nbsp;</td>
+          </tr>          
+
+          <!-- BLOCK1_START -->
+          <!-- ============================================================ -->
+          <!-- SECTION: DUST & FUME COLLECTION (image + headline + subtext + CTA) -->
+          <!-- ============================================================ -->
+
+          <!-- Headline -->
+          <tr>
+            <td style="padding: 40px 40px 0px 40px; text-align: left; background-color: #ffffff;">
+              <h1 style="margin: 0; font-size: 25px; color: #000000; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; line-height: 1.2;">
+                {{BLOCK1_HEADLINE}}
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Subtext -->
+          <tr>
+            <td style="padding: 10px 40px; text-align: left; background-color: #ffffff;">
+              <p style="font-size: 18px; color: #555555; font-family:'Manrope', Helvetica, Arial, sans-serif; line-height: 1.4;">
+                {{BLOCK1_SUBTEXT}}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Sizes image -->
+          <tr>
+            <td style="padding: 20px 0px 0px 0px; text-align: left; background-color: #ffffff;">
+              <a href="{{BLOCK1_CTA_URL}}" style="color:#555555; font-family:'Manrope', Helvetica, Arial, sans-serif;">
+                <img src="{{BLOCK1_IMAGE_SRC}}" width="100%" alt="{{BLOCK1_IMAGE_ALT}}" title="{{BLOCK1_IMAGE_ALT}}" style="display:block; max-width:100%; height:auto;" class="stack-img">
+              </a>
+            </td>
+          </tr>
+
+          <!-- CTA button (outline black, mobile-centered) -->
+          <tr>
+            <td align="left" class="mobile-center" style="padding: 30px 30px 30px 30px; background-color: #ffffff;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#ffffff" style="border-radius: 6px;">
+                    <a href="{{BLOCK1_CTA_URL}}"
+                       style="display: inline-block; padding: 10px 20px; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; font-size: 16px; color: #000000; text-decoration: none; border: 2px solid #000000; border-radius: 6px; background-color: #ffffff;">
+                      {{BLOCK1_CTA_TEXT}}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- SPACER -->
+          <tr>
+            <td height="20" style="height:20px; line-height:20px; font-size:1px; mso-line-height-rule: exactly; background-color:#cecece;">&nbsp;</td>
+          </tr>          
+          <!-- BLOCK1_END -->
+
+          <!-- BLOCK2_START -->
+          <!-- ============================================================ -->
+          <!-- SECTION: WELD FUME EXTRACTION (image + headline + subtext + CTA)    -->
+          <!-- ============================================================ -->
+
+          <!-- Headline -->
+          <tr>
+            <td style="padding: 40px 40px 0px 40px; text-align: left; background-color: #ffffff;">
+              <h1 style="margin: 0; font-size: 25px; color: #000000; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; line-height: 1.2;">
+                {{BLOCK2_HEADLINE}}
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Subtext -->
+          <tr>
+            <td style="padding: 10px 40px; text-align: left; background-color: #ffffff;">
+              <p style="font-size: 18px; color: #555555; font-family:'Manrope', Helvetica, Arial, sans-serif; line-height: 1.4;">
+                {{BLOCK2_SUBTEXT}}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Sizes image -->
+          <tr>
+            <td style="padding: 20px 0px 0px 0px; text-align: left; background-color: #ffffff;">
+              <a href="{{BLOCK2_CTA_URL}}" style="color:#555555; font-family:'Manrope', Helvetica, Arial, sans-serif;">
+                <img src="{{BLOCK2_IMAGE_SRC}}" width="100%" alt="{{BLOCK2_IMAGE_ALT}}" title="{{BLOCK2_IMAGE_ALT}}" style="display:block; max-width:100%; height:auto;" class="stack-img">
+              </a>
+            </td>
+          </tr>
+
+          <!-- CTA button (outline black, mobile-centered) -->
+          <tr>
+            <td align="left" class="mobile-center" style="padding: 30px 30px 30px 30px; background-color: #ffffff;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#ffffff" style="border-radius: 6px;">
+                    <a href="{{BLOCK2_CTA_URL}}"
+                       style="display: inline-block; padding: 10px 20px; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; font-size: 16px; color: #000000; text-decoration: none; border: 2px solid #000000; border-radius: 6px; background-color: #ffffff;">
+                      {{BLOCK2_CTA_TEXT}}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- SPACER -->
+          <tr>
+            <td height="20" style="height:20px; line-height:20px; font-size:1px; mso-line-height-rule: exactly; background-color:#cecece;">&nbsp;</td>
+          </tr>          
+          <!-- BLOCK2_END -->
+
+          <!-- BLOCK3_START -->
+          <!-- ============================================================ -->
+          <!-- SECTION: AUSTRALIAN MADE (image + headline + subtext + CTA)         -->
+          <!-- ============================================================ -->
+
+          <!-- Headline -->
+          <tr>
+            <td style="padding: 40px 40px 0px 40px; text-align: left; background-color: #ffffff;">
+              <h1 style="margin: 0; font-size: 25px; color: #000000; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; line-height: 1.2;">
+                {{BLOCK3_HEADLINE}}
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Subtext -->
+          <tr>
+            <td style="padding: 10px 40px; text-align: left; background-color: #ffffff;">
+              <p style="font-size: 18px; color: #555555; font-family:'Manrope', Helvetica, Arial, sans-serif; line-height: 1.4;">
+                {{BLOCK3_SUBTEXT}}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Sizes image -->
+          <tr>
+            <td style="padding: 20px 0px 0px 0px; text-align: left; background-color: #ffffff;">
+              <a href="{{BLOCK3_CTA_URL}}" style="color:#555555; font-family:'Manrope', Helvetica, Arial, sans-serif;">
+                <img src="{{BLOCK3_IMAGE_SRC}}" width="100%" alt="{{BLOCK3_IMAGE_ALT}}" title="{{BLOCK3_IMAGE_ALT}}" style="display:block; max-width:100%; height:auto;" class="stack-img">
+              </a>
+            </td>
+          </tr>
+
+          <!-- CTA button (outline black, mobile-centered) -->
+          <tr>
+            <td align="left" class="mobile-center" style="padding: 30px 30px 30px 30px; background-color: #ffffff;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#ffffff" style="border-radius: 6px;">
+                    <a href="{{BLOCK3_CTA_URL}}"
+                       style="display: inline-block; padding: 10px 20px; font-family:'Manrope', Helvetica, Arial, sans-serif; font-weight: 800; font-size: 16px; color: #000000; text-decoration: none; border: 2px solid #000000; border-radius: 6px; background-color: #ffffff;">
+                      {{BLOCK3_CTA_TEXT}}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- SPACER -->
+          <tr>
+            <td height="20" style="height:20px; line-height:20px; font-size:1px; mso-line-height-rule: exactly; background-color:#cecece;">&nbsp;</td>
+          </tr>           
+          <!-- BLOCK3_END -->
+
+          <!-- ============================================================ -->
+          <!-- SECTION: SOCIAL ICONS                                         -->
+          <!-- ============================================================ -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; background-color: #e5e5e5; text-align: left;">
+              <a href="https://www.facebook.com/burwelltechnologies" style="padding: 0px 40px 0px 0px; text-decoration: none; display: inline-block; line-height: 0;">
+                <img src="images/SOCIAL-FB.png" alt="Facebook" title="Facebook" width="30" style="display:block; border:0;">
+              </a>
+              <a href="https://www.instagram.com/burwell.technologies/" style="padding: 0px 40px 0px 0px; text-decoration: none; display: inline-block; line-height: 0;">
+                <img src="images/SOCIAL-IG.png" alt="Instagram" title="Instagram" width="30" style="display:block; border:0;">
+              </a>
+              <a href="https://www.linkedin.com/company/burwell-technologies/" style="padding: 0px 40px 0px 0px; text-decoration: none; display: inline-block; line-height: 0;">
+                <img src="images/SOCIAL-LI.png" alt="LinkedIn" title="LinkedIn" width="30" style="display:block; border:0;">
+              </a>
+              <a href="https://www.burwell.com.au/" style="padding: 0px 40px 0px 0px; text-decoration: none; display: inline-block; line-height: 0;">
+                <img src="images/SOCIAL-WEBSITE.png" alt="Burwell Website" title="Burwell Website" width="30" style="display:block; border:0;">
+              </a>              
+              <a href="https://www.burwell.com.au/about/google-review/" style="padding: 0px 40px 0px 0px; text-decoration: none; display: inline-block; line-height: 0;">
+                <img src="images/SOCIAL-GOOGLE-REVIEW.png" alt="Google Review" title="Google Review" width="30" style="display:block; border:0;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- ============================================================ -->
+          <!-- SECTION: FOOTER                                               -->
+          <!-- ============================================================ -->
+          <tr>
+            <td style="padding: 10px 40px 40px 40px; background-color: #e5e5e5; font-size:12px; color:#888888; font-family:'Manrope', Helvetica, Arial, sans-serif; text-align:left;">
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                Burwell Technologies Pty. Ltd.
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                Branches Across Australia: Sydney | Melbourne | Brisbane | Perth | Newcastle | Townsville 
+              </p>              
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                Head Office and Factory: 291 Milperra Road Revesby NSW 2212 Australia
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                General Enquiries: (02) 9792 2733 | Across Australia: 1300 287 935
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 40px; line-height: 1.2;">
+                Enquiries:
+                <a href="mailto:mail@burwell.com.au" style="color:#222222; font-family:'Manrope', Helvetica, Arial, sans-serif; text-decoration: underline;">mail@burwell.com.au</a>
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 40px; line-height: 1.2;">
+                <webversion style="color:#222222; font-family:'Manrope', Helvetica, Arial, sans-serif; text-decoration: underline;">View this email in a Browser</webversion>
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                You are receiving this email because you have shown interest in Burwell Environmental Division.
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                <a href="https://www.burwell.com.au/about/customer-survey/" style="color:#222222; font-family:'Manrope', Helvetica, Arial, sans-serif; text-decoration: underline;">Take a Customer Survey</a>
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <a href="https://www.burwell.com.au/about/email-disclaimer/" style="color:#222222; font-family:'Manrope', Helvetica, Arial, sans-serif; text-decoration: underline;">Email Disclaimer</a>
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <preferences style="color:#222222; font-family:'Manrope', Helvetica, Arial, sans-serif; text-decoration: underline;">Manage Email Preferences</preferences>
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <unsubscribe style="color:#222222; font-family:'Manrope', Helvetica, Arial, sans-serif; text-decoration: underline;">Unsubscribe</unsubscribe>
+              </p>
+
+              <p style="font-size: 11px; color: #222222; font-family:'Manrope', Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 10px; line-height: 1.2;">
+                Copyright © 2026 Burwell Technologies
+              </p>
+
+            </td>
+          </tr>
+
+        </table>
+        <!-- / Main container -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- / OUTER WRAPPER -->
+
+</body>
+</html>
+`;
+
+// ---------- Field configuration ----------
+const META_FIELDS = [
+  { key: "EMAIL_TITLE", label: "Email Title (&lt;title&gt; tag)", type: "text", placeholder: "e.g. Burwell — General Product Update" },
+  { key: "SUBJECT_LINE", label: "Subject Line (reference — also set this in Campaign Monitor)", type: "text", placeholder: "e.g. What's new from Burwell!" },
+  { key: "PREVIEW_TEXT", label: "Preview Text (hidden preheader + reference for Campaign Monitor)", type: "text", placeholder: "e.g. Find out the latest product releases" },
+];
+
+const HERO_FIELDS = [
+  { key: "HERO_HEADLINE", label: "Headline", type: "text" },
+  { key: "HERO_SUBTEXT", label: "Subtext", type: "textarea" },
+  { key: "HERO_CTA_TEXT", label: "CTA Button Text", type: "text" },
+  { key: "HERO_CTA_URL", label: "CTA / Image Link URL", type: "text" },
+  { key: "HERO_IMAGE_SRC", label: "Image filename / path", type: "image", placeholder: "images/example.jpg" },
+  { key: "HERO_IMAGE_ALT", label: "Image alt text", type: "text" },
+];
+
+function blockFields(n){
+  return [
+    { key: `BLOCK${n}_HEADLINE`, label: "Headline", type: "text" },
+    { key: `BLOCK${n}_SUBTEXT`, label: "Subtext", type: "textarea" },
+    { key: `BLOCK${n}_CTA_TEXT`, label: "CTA Button Text", type: "text" },
+    { key: `BLOCK${n}_CTA_URL`, label: "CTA / Image Link URL", type: "text" },
+    { key: `BLOCK${n}_IMAGE_SRC`, label: "Image filename / path", type: "image", placeholder: "images/example.jpg" },
+    { key: `BLOCK${n}_IMAGE_ALT`, label: "Image alt text", type: "text" },
+  ];
+}
+
+const state = {
+  values: {},
+  blockEnabled: { 1: true, 2: true, 3: true },
+  selectedFiles: {}, // key -> File object, for zipping up on demand
+};
+
+// ---------- Build form UI ----------
+const formPanel = document.getElementById("formPanel");
+
+function fieldHTML(f){
+  if (f.type === "image") {
+    return `
+      <div class="field">
+        <label for="fld_${f.key}">${f.label}</label>
+        <div class="image-field-row">
+          <div class="thumb" id="thumb_${f.key}">
+            <span class="thumb-placeholder">No image selected</span>
+          </div>
+          <div class="image-field-controls">
+            <input type="text" id="fld_${f.key}" data-key="${f.key}" placeholder="${f.placeholder || ''}">
+            <div class="image-field-buttons">
+              <button type="button" class="btn-choose" id="choose_${f.key}">Choose Image…</button>
+              <input type="file" accept="image/*" id="file_${f.key}" style="display:none;">
+            </div>
+            <div class="hint">Assumes the file lives in this campaign's <code>images/</code> folder — picking a file just fills in the filename.</div>
+          </div>
+        </div>
+      </div>`;
+  }
+  const tag = f.type === "textarea" ? "textarea" : "input";
+  const typeAttr = f.type === "textarea" ? "" : `type="text"`;
+  return `
+    <div class="field">
+      <label for="fld_${f.key}">${f.label}</label>
+      ${tag === "textarea"
+        ? `<textarea id="fld_${f.key}" data-key="${f.key}" placeholder="${f.placeholder || ''}"></textarea>`
+        : `<input ${typeAttr} id="fld_${f.key}" data-key="${f.key}" placeholder="${f.placeholder || ''}">`
+      }
+    </div>`;
+}
+
+function buildCard({ title, badge, fields, toggleKey, lockedNote }){
+  const card = document.createElement("div");
+  card.className = "section-card";
+
+  const head = document.createElement("div");
+  head.className = "section-head";
+  head.innerHTML = `
+    <div class="title">${title} ${badge ? `<span class="badge">${badge}</span>` : ""}</div>
+    ${toggleKey ? `
+      <div class="toggle-wrap">
+        <span id="toggleLabel_${toggleKey}">Included</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle_${toggleKey}" checked>
+          <span class="slider"></span>
+        </label>
+      </div>` : ""}
+  `;
+  card.appendChild(head);
+
+  if (lockedNote) {
+    const note = document.createElement("div");
+    note.className = "locked-note";
+    note.innerHTML = lockedNote;
+    card.appendChild(note);
+  } else {
+    const body = document.createElement("div");
+    body.className = "section-body";
+    body.id = toggleKey ? `body_${toggleKey}` : undefined;
+    body.innerHTML = fields.map(fieldHTML).join("");
+    card.appendChild(body);
+  }
+
+  return card;
+}
+
+// Meta card
+formPanel.appendChild(buildCard({
+  title: "Email Meta",
+  fields: META_FIELDS,
+}));
+
+// Header locked note
+formPanel.appendChild(buildCard({
+  title: "Header",
+  lockedNote: "🔒 Locked — Burwell logo & homepage link, same on every EDM. No fields to fill in.",
+}));
+
+// Hero card
+formPanel.appendChild(buildCard({
+  title: "Hero",
+  badge: "Always shown",
+  fields: HERO_FIELDS,
+}));
+
+// Content blocks
+[1, 2, 3].forEach(n => {
+  formPanel.appendChild(buildCard({
+    title: `Content Block ${n}`,
+    fields: blockFields(n),
+    toggleKey: n,
+  }));
+});
+
+// Footer locked note
+formPanel.appendChild(buildCard({
+  title: "Social Icons + Footer",
+  lockedNote: "🔒 Locked — Burwell company details, social links, and unsubscribe/preferences merge tags, same on every EDM. No fields to fill in.",
+}));
+
+// ---------- Wire up inputs ----------
+formPanel.querySelectorAll("[data-key]").forEach(el => {
+  state.values[el.dataset.key] = "";
+  el.addEventListener("input", () => {
+    state.values[el.dataset.key] = el.value;
+    renderPreview();
+  });
+});
+
+// ---------- Wire up image file pickers ----------
+const IMAGE_FIELD_KEYS = [
+  "HERO_IMAGE_SRC", "BLOCK1_IMAGE_SRC", "BLOCK2_IMAGE_SRC", "BLOCK3_IMAGE_SRC"
+];
+
+IMAGE_FIELD_KEYS.forEach(key => {
+  const chooseBtn = document.getElementById(`choose_${key}`);
+  const fileInput = document.getElementById(`file_${key}`);
+  const textInput = document.getElementById(`fld_${key}`);
+  const thumb = document.getElementById(`thumb_${key}`);
+  if (!chooseBtn || !fileInput || !textInput || !thumb) return;
+
+  chooseBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    // Keep the actual File object so it can be included in the images ZIP
+    state.selectedFiles[key] = file;
+
+    // Fill the text field with the images/ path convention
+    const path = `images/${file.name}`;
+    textInput.value = path;
+    state.values[key] = path;
+    renderPreview();
+
+    // Show a thumbnail preview from the local file
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      thumb.innerHTML = `<img src="${e.target.result}" alt="">`;
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+[1, 2, 3].forEach(n => {
+  const toggle = document.getElementById(`toggle_${n}`);
+  const body = document.getElementById(`body_${n}`);
+  const label = document.getElementById(`toggleLabel_${n}`);
+  toggle.addEventListener("change", () => {
+    state.blockEnabled[n] = toggle.checked;
+    body.classList.toggle("disabled", !toggle.checked);
+    label.textContent = toggle.checked ? "Included" : "Hidden";
+    renderPreview();
+  });
+});
+
+// ---------- Generation logic ----------
+function generateHTML(){
+  let html = MASTER_TEMPLATE;
+
+  // Remove disabled blocks entirely (markers + content)
+  [1, 2, 3].forEach(n => {
+    const startTag = `<!-- BLOCK${n}_START -->`;
+    const endTag = `<!-- BLOCK${n}_END -->`;
+    if (!state.blockEnabled[n]) {
+      const startIdx = html.indexOf(startTag);
+      const endIdx = html.indexOf(endTag);
+      if (startIdx !== -1 && endIdx !== -1) {
+        html = html.slice(0, startIdx) + html.slice(endIdx + endTag.length);
+      }
+    } else {
+      html = html.split(startTag).join("").split(endTag).join("");
+    }
+  });
+
+  // Replace all remaining {{TOKENS}} with entered values (blank if empty)
+  html = html.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key) => {
+    return (state.values[key] !== undefined && state.values[key] !== "")
+      ? state.values[key]
+      : "";
+  });
+
+  return html;
+}
+
+function renderPreview(){
+  const html = generateHTML();
+  const frame = document.getElementById("previewFrame");
+  frame.srcdoc = html;
+
+  const activeBlocks = [1,2,3].filter(n => state.blockEnabled[n]).length;
+  document.getElementById("previewMeta").textContent = `${activeBlocks} of 3 content blocks included`;
+}
+
+// ---------- Copy / Download ----------
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const html = generateHTML();
+  try {
+    await navigator.clipboard.writeText(html);
+    const btn = document.getElementById("copyBtn");
+    const original = btn.textContent;
+    btn.textContent = "Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1600);
+  } catch (e) {
+    alert("Couldn't copy automatically — please select and copy manually.");
+  }
+});
+
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const html = generateHTML();
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const titleVal = (state.values.EMAIL_TITLE || "burwell-edm").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  a.href = url;
+  a.download = `${titleVal || "burwell-edm"}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById("downloadImagesBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("downloadImagesBtn");
+
+  // Only include images for sections actually in the final email:
+  // Hero always, each Content Block only if its toggle is switched on.
+  const activeKeys = ["HERO_IMAGE_SRC"];
+  [1, 2, 3].forEach(n => {
+    if (state.blockEnabled[n]) activeKeys.push(`BLOCK${n}_IMAGE_SRC`);
+  });
+
+  const filesToZip = activeKeys
+    .map(key => state.selectedFiles[key])
+    .filter(Boolean);
+
+  if (filesToZip.length === 0) {
+    alert("No images have been chosen via \"Choose Image…\" yet. Pick images using the file picker on each image field first — typed-in paths alone can't be bundled, since the browser only has access to files you've explicitly selected.");
+    return;
+  }
+
+  const missingCount = activeKeys.length - filesToZip.length;
+
+  btn.disabled = true;
+  btn.textContent = "Zipping…";
+
+  try {
+    const zip = new JSZip();
+    const imagesFolder = zip.folder("images");
+    for (const file of filesToZip) {
+      const arrayBuffer = await file.arrayBuffer();
+      imagesFolder.file(file.name, arrayBuffer);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement("a");
+    const titleVal = (state.values.EMAIL_TITLE || "burwell-edm").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    a.href = url;
+    a.download = `${titleVal || "burwell-edm"}-images.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if (missingCount > 0) {
+      alert(`Zipped ${filesToZip.length} image(s). Note: ${missingCount} active image field${missingCount > 1 ? "s haven't" : " hasn't"} had a file chosen via the picker yet, so ${missingCount > 1 ? "they're" : "it's"} not included — double check every image field before uploading to Campaign Monitor.`);
+    }
+  } catch (err) {
+    alert("Couldn't build the ZIP: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Download Images (ZIP)";
+  }
+});
+
+// Initial render
+renderPreview();
+</script>
+
+</body>
+</html>
